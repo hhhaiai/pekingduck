@@ -4,7 +4,7 @@ FROM python:3.11-slim
 # 设置工作目录
 WORKDIR /app
 
-# 安装系统依赖和字体
+# 以root用户安装系统依赖
 RUN apt-get update && apt-get install -y \
     fonts-ipafont-gothic \
     fonts-wqy-zenhei \
@@ -27,19 +27,31 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制项目文件
-COPY . .
+# 创建非root用户
+RUN useradd -m -d /home/playwright playwright
 
-# 安装Python依赖
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 安装Playwright及其依赖
-RUN playwright install chromium --with-deps
-
-# 环境变量配置
+# 设置环境变量
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/playwright/.cache/ms-playwright
+ENV PATH="/home/playwright/.local/bin:${PATH}"
 ENV PYTHONUNBUFFERED=1
 ENV DEBUG=false
 ENV PORT=7860
+
+# 复制requirements.txt并安装依赖
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
+    playwright install chromium --with-deps
+
+# 设置必要的目录和权限
+RUN mkdir -p /home/playwright/.cache/ms-playwright && \
+    chown -R playwright:playwright /home/playwright && \
+    chmod -R 755 /home/playwright/.cache
+
+# 复制项目文件并设置权限
+COPY --chown=playwright:playwright . .
+
+# 切换到非root用户
+USER playwright
 
 # 暴露端口
 EXPOSE 7860

@@ -29,3 +29,40 @@ docker run -d --name ppdemo \
   ppdemo
 
 ```
+
+* test
+
+``` bash
+curl http://localhost:7860/v1/models
+
+curl -X POST http://localhost:7860/api/v1/chat/completions \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Say this is a test!"}],
+    "temperature": 0.7,
+    "max_tokens": 150,
+    "top_p": 1.0,
+    "frequency_penalty": 0.0,
+    "presence_penalty": 0.0
+  }'
+
+
+
+curl -X POST http://localhost:7860/api/v1/chat/completions \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-haiku-20240307",
+    "messages": [{"role": "user", "content": "Say this is a test!"}],
+    "temperature": 0.7,
+    "max_tokens": 150,
+    "top_p": 1.0,
+    "frequency_penalty": 0.0,
+    "presence_penalty": 0.0
+  }'
+
+```

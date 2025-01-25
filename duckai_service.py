@@ -10,7 +10,7 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-debug = True
+debug = False
 last_request_time = 0  # 上次请求的时间戳
 cache_duration = 14400  # 缓存有效期，单位：秒 (4小时)
 '''用于存储缓存的模型数据'''
@@ -425,12 +425,9 @@ def chat_completion_messages(
         # 处理 token
         if x_vqd_4 is None or not x_vqd_4.strip():
             x_vqd_4 = extract_x_vqd_4()  # 使用 makesure_token 确保获取有效的 token
-        
-        # # 验证 token 格式
-        # if not x_vqd_4.strip() or x_vqd_4.startswith("x-vqd-4 parameter not found"):
-        #     x_vqd_4 = makesure_token()  # token 无效时重新获取
-            
-        print(f"send_request 获取的token: {x_vqd_4}")
+
+        if debug:
+            print(f"send_request 获取的token: {x_vqd_4}")
 
         headers = {
             'Accept': 'text/event-stream',
