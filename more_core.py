@@ -19,12 +19,12 @@ import base_chat_format as forts
 
 
 # debug for Log
-debug = False
+debug = True
 
 app = FastAPI(
     title="pekingduck",
     description="Pekingduck is delious~",
-    version="1.0.1|2025.1.26"
+    version="1.0.2|2025.4.10"
 )
 
 

@@ -40,7 +40,7 @@ ENV PORT=7860
 # 复制requirements.txt并安装依赖
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
-    playwright install chromium --with-deps
+    playwright install firefox --with-deps
 
 # 设置必要的目录和权限
 RUN mkdir -p /home/playwright/.cache/ms-playwright && \
