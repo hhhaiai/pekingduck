@@ -4,10 +4,12 @@ import json
 import base_get_channel as channel
 from typing import Optional, Dict
 import time
+import execjs
 from datetime import datetime, timedelta
 # 禁用 SSL 警告
 import urllib3
 import traceback
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 debug = True
@@ -17,12 +19,12 @@ cache_duration = 14400  # 缓存有效期，单位：秒 (4小时)
 cached_models = {
     "object": "list",
     "data": [],
-    "version": "1.0.1",
+    "version": "1.0.2",
     "provider": "DuckAI",
     "name": "DuckAI",
     "default_locale": "zh-CN",
     "status": True,
-    "time": 0
+    "time": "20250506"
 }
 
 '''基础模型'''
@@ -30,6 +32,514 @@ base_model = "gpt-4o-mini"
 # 全局变量：存储所有模型的统计信息
 # 格式：{model_name: {"calls": 调用次数, "fails": 失败次数, "last_fail": 最后失败时间}}
 MODEL_STATS: Dict[str, Dict] = {}
+
+js_code = """
+                    var CryptoJS = CryptoJS || (function (Math, undefined) {
+                        var crypto;
+                        if (typeof window !== 'undefined' && window.crypto) {
+                            crypto = window.crypto;
+                        }
+                        if (typeof self !== 'undefined' && self.crypto) {
+                            crypto = self.crypto;
+                        }
+                        if (typeof globalThis !== 'undefined' && globalThis.crypto) {
+                            crypto = globalThis.crypto;
+                        }
+                        if (!crypto && typeof window !== 'undefined' && window.msCrypto) {
+                            crypto = window.msCrypto;
+                        }
+                        if (!crypto && typeof global !== 'undefined' && global.crypto) {
+                            crypto = global.crypto;
+                        }
+                        if (!crypto && typeof require === 'function') {
+                            try {
+                                crypto = require('crypto');
+                            } catch (err) {
+                            }
+                        }
+                        var cryptoSecureRandomInt = function () {
+                            if (crypto) {
+                                if (typeof crypto.getRandomValues === 'function') {
+                                    try {
+                                        return crypto.getRandomValues(new Uint32Array(1))[0];
+                                    } catch (err) {
+                                    }
+                                }
+                                if (typeof crypto.randomBytes === 'function') {
+                                    try {
+                                        return crypto.randomBytes(4).readInt32LE();
+                                    } catch (err) {
+                                    }
+                                }
+                            }
+                            throw new Error('Native crypto module could not be used to get secure random number.');
+                        };
+                        var create = Object.create || (function () {
+                            function F() {
+                            }
+
+                            return function (obj) {
+                                var subtype;
+                                F.prototype = obj;
+                                subtype = new F();
+                                F.prototype = null;
+                                return subtype;
+                            };
+                        }());
+                        var C = {};
+                        var C_lib = C.lib = {};
+                        var Base = C_lib.Base = (function () {
+                            return {
+                                extend: function (overrides) {
+                                    var subtype = create(this);
+                                    if (overrides) {
+                                        subtype.mixIn(overrides);
+                                    }
+                                    if (!subtype.hasOwnProperty('init') || this.init === subtype.init) {
+                                        subtype.init = function () {
+                                            subtype.$super.init.apply(this, arguments);
+                                        };
+                                    }
+                                    subtype.init.prototype = subtype;
+                                    subtype.$super = this;
+                                    return subtype;
+                                }, create: function () {
+                                    var instance = this.extend();
+                                    instance.init.apply(instance, arguments);
+                                    return instance;
+                                }, init: function () {
+                                }, mixIn: function (properties) {
+                                    for (var propertyName in properties) {
+                                        if (properties.hasOwnProperty(propertyName)) {
+                                            this[propertyName] = properties[propertyName];
+                                        }
+                                    }
+                                    if (properties.hasOwnProperty('toString')) {
+                                        this.toString = properties.toString;
+                                    }
+                                }, clone: function () {
+                                    return this.init.prototype.extend(this);
+                                }
+                            };
+                        }());
+                        var WordArray = C_lib.WordArray = Base.extend({
+                            init: function (words, sigBytes) {
+                                words = this.words = words || [];
+                                if (sigBytes != undefined) {
+                                    this.sigBytes = sigBytes;
+                                } else {
+                                    this.sigBytes = words.length * 4;
+                                }
+                            }, toString: function (encoder) {
+                                return (encoder || Hex).stringify(this);
+                            }, concat: function (wordArray) {
+                                var thisWords = this.words;
+                                var thatWords = wordArray.words;
+                                var thisSigBytes = this.sigBytes;
+                                var thatSigBytes = wordArray.sigBytes;
+                                this.clamp();
+                                if (thisSigBytes % 4) {
+                                    for (var i = 0; i < thatSigBytes; i++) {
+                                        var thatByte = (thatWords[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+                                        thisWords[(thisSigBytes + i) >>> 2] |= thatByte << (24 - ((thisSigBytes + i) % 4) * 8);
+                                    }
+                                } else {
+                                    for (var j = 0; j < thatSigBytes; j += 4) {
+                                        thisWords[(thisSigBytes + j) >>> 2] = thatWords[j >>> 2];
+                                    }
+                                }
+                                this.sigBytes += thatSigBytes;
+                                return this;
+                            }, clamp: function () {
+                                var words = this.words;
+                                var sigBytes = this.sigBytes;
+                                words[sigBytes >>> 2] &= 0xffffffff << (32 - (sigBytes % 4) * 8);
+                                words.length = Math.ceil(sigBytes / 4);
+                            }, clone: function () {
+                                var clone = Base.clone.call(this);
+                                clone.words = this.words.slice(0);
+                                return clone;
+                            }, random: function (nBytes) {
+                                var words = [];
+                                var r = (function (m_w) {
+                                    var m_w = m_w;
+                                    var m_z = 0x3ade68b1;
+                                    var mask = 0xffffffff;
+                                    return function () {
+                                        m_z = (0x9069 * (m_z & 0xFFFF) + (m_z >> 0x10)) & mask;
+                                        m_w = (0x4650 * (m_w & 0xFFFF) + (m_w >> 0x10)) & mask;
+                                        var result = ((m_z << 0x10) + m_w) & mask;
+                                        result /= 0x100000000;
+                                        result += 0.5;
+                                        return result * (Math.random() > .5 ? 1 : -1);
+                                    }
+                                });
+                                var RANDOM = false, _r;
+                                try {
+                                    cryptoSecureRandomInt();
+                                    RANDOM = true;
+                                } catch (err) {
+                                }
+                                for (var i = 0, rcache; i < nBytes; i += 4) {
+                                    if (!RANDOM) {
+                                        _r = r((rcache || Math.random()) * 0x100000000);
+                                        rcache = _r() * 0x3ade67b7;
+                                        words.push((_r() * 0x100000000) | 0);
+                                        continue;
+                                    }
+                                    words.push(cryptoSecureRandomInt());
+                                }
+                                return new WordArray.init(words, nBytes);
+                            }
+                        });
+                        var C_enc = C.enc = {};
+                        var Hex = C_enc.Hex = {
+                            stringify: function (wordArray) {
+                                var words = wordArray.words;
+                                var sigBytes = wordArray.sigBytes;
+                                var hexChars = [];
+                                for (var i = 0; i < sigBytes; i++) {
+                                    var bite = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+                                    hexChars.push((bite >>> 4).toString(16));
+                                    hexChars.push((bite & 0x0f).toString(16));
+                                }
+                                return hexChars.join('');
+                            }, parse: function (hexStr) {
+                                var hexStrLength = hexStr.length;
+                                var words = [];
+                                for (var i = 0; i < hexStrLength; i += 2) {
+                                    words[i >>> 3] |= parseInt(hexStr.substr(i, 2), 16) << (24 - (i % 8) * 4);
+                                }
+                                return new WordArray.init(words, hexStrLength / 2);
+                            }
+                        };
+                        var Latin1 = C_enc.Latin1 = {
+                            stringify: function (wordArray) {
+                                var words = wordArray.words;
+                                var sigBytes = wordArray.sigBytes;
+                                var latin1Chars = [];
+                                for (var i = 0; i < sigBytes; i++) {
+                                    var bite = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+                                    latin1Chars.push(String.fromCharCode(bite));
+                                }
+                                return latin1Chars.join('');
+                            }, parse: function (latin1Str) {
+                                var latin1StrLength = latin1Str.length;
+                                var words = [];
+                                for (var i = 0; i < latin1StrLength; i++) {
+                                    words[i >>> 2] |= (latin1Str.charCodeAt(i) & 0xff) << (24 - (i % 4) * 8);
+                                }
+                                return new WordArray.init(words, latin1StrLength);
+                            }
+                        };
+                        var Utf8 = C_enc.Utf8 = {
+                            stringify: function (wordArray) {
+                                try {
+                                    return decodeURIComponent(escape(Latin1.stringify(wordArray)));
+                                } catch (e) {
+                                    throw new Error('Malformed UTF-8 data');
+                                }
+                            }, parse: function (utf8Str) {
+                                return Latin1.parse(unescape(encodeURIComponent(utf8Str)));
+                            }
+                        };
+                        var BufferedBlockAlgorithm = C_lib.BufferedBlockAlgorithm = Base.extend({
+                            reset: function () {
+                                this._data = new WordArray.init();
+                                this._nDataBytes = 0;
+                            }, _append: function (data) {
+                                if (typeof data == 'string') {
+                                    data = Utf8.parse(data);
+                                }
+                                this._data.concat(data);
+                                this._nDataBytes += data.sigBytes;
+                            }, _process: function (doFlush) {
+                                var processedWords;
+                                var data = this._data;
+                                var dataWords = data.words;
+                                var dataSigBytes = data.sigBytes;
+                                var blockSize = this.blockSize;
+                                var blockSizeBytes = blockSize * 4;
+                                var nBlocksReady = dataSigBytes / blockSizeBytes;
+                                if (doFlush) {
+                                    nBlocksReady = Math.ceil(nBlocksReady);
+                                } else {
+                                    nBlocksReady = Math.max((nBlocksReady | 0) - this._minBufferSize, 0);
+                                }
+                                var nWordsReady = nBlocksReady * blockSize;
+                                var nBytesReady = Math.min(nWordsReady * 4, dataSigBytes);
+                                if (nWordsReady) {
+                                    for (var offset = 0; offset < nWordsReady; offset += blockSize) {
+                                        this._doProcessBlock(dataWords, offset);
+                                    }
+                                    processedWords = dataWords.splice(0, nWordsReady);
+                                    data.sigBytes -= nBytesReady;
+                                }
+                                return new WordArray.init(processedWords, nBytesReady);
+                            }, clone: function () {
+                                var clone = Base.clone.call(this);
+                                clone._data = this._data.clone();
+                                return clone;
+                            }, _minBufferSize: 0
+                        });
+                        var Hasher = C_lib.Hasher = BufferedBlockAlgorithm.extend({
+                            cfg: Base.extend(),
+                            init: function (cfg) {
+                                this.cfg = this.cfg.extend(cfg);
+                                this.reset();
+                            }, reset: function () {
+                                BufferedBlockAlgorithm.reset.call(this);
+                                this._doReset();
+                            }, update: function (messageUpdate) {
+                                this._append(messageUpdate);
+                                this._process();
+                                return this;
+                            }, finalize: function (messageUpdate) {
+                                if (messageUpdate) {
+                                    this._append(messageUpdate);
+                                }
+                                var hash = this._doFinalize();
+                                return hash;
+                            }, blockSize: 512 / 32,
+                            _createHelper: function (hasher) {
+                                return function (message, cfg) {
+                                    return new hasher.init(cfg).finalize(message);
+                                };
+                            }, _createHmacHelper: function (hasher) {
+                                return function (message, key) {
+                                    return new C_algo.HMAC.init(hasher, key).finalize(message);
+                                };
+                            }
+                        });
+                        var C_algo = C.algo = {};
+                        return C;
+                    }(Math));
+
+                    (function () {
+                        var C = CryptoJS;
+                        var C_lib = C.lib;
+                        var WordArray = C_lib.WordArray;
+                        var C_enc = C.enc;
+                        var Base64 = C_enc.Base64 = {
+                            stringify: function (wordArray) {
+                                var words = wordArray.words;
+                                var sigBytes = wordArray.sigBytes;
+                                var map = this._map;
+                                wordArray.clamp();
+                                var base64Chars = [];
+                                for (var i = 0; i < sigBytes; i += 3) {
+                                    var byte1 = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+                                    var byte2 = (words[(i + 1) >>> 2] >>> (24 - ((i + 1) % 4) * 8)) & 0xff;
+                                    var byte3 = (words[(i + 2) >>> 2] >>> (24 - ((i + 2) % 4) * 8)) & 0xff;
+                                    var triplet = (byte1 << 16) | (byte2 << 8) | byte3;
+                                    for (var j = 0;
+                                         (j < 4) && (i + j * 0.75 < sigBytes); j++) {
+                                        base64Chars.push(map.charAt((triplet >>> (6 * (3 - j))) & 0x3f));
+                                    }
+                                }
+                                var paddingChar = map.charAt(64);
+                                if (paddingChar) {
+                                    while (base64Chars.length % 4) {
+                                        base64Chars.push(paddingChar);
+                                    }
+                                }
+                                return base64Chars.join('');
+                            }, parse: function (base64Str) {
+                                var base64StrLength = base64Str.length;
+                                var map = this._map;
+                                var reverseMap = this._reverseMap;
+                                if (!reverseMap) {
+                                    reverseMap = this._reverseMap = [];
+                                    for (var j = 0; j < map.length; j++) {
+                                        reverseMap[map.charCodeAt(j)] = j;
+                                    }
+                                }
+                                var paddingChar = map.charAt(64);
+                                if (paddingChar) {
+                                    var paddingIndex = base64Str.indexOf(paddingChar);
+                                    if (paddingIndex !== -1) {
+                                        base64StrLength = paddingIndex;
+                                    }
+                                }
+                                return parseLoop(base64Str, base64StrLength, reverseMap);
+                            }, _map: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='
+                        };
+
+                        function parseLoop(base64Str, base64StrLength, reverseMap) {
+                            var words = [];
+                            var nBytes = 0;
+                            for (var i = 0; i < base64StrLength; i++) {
+                                if (i % 4) {
+                                    var bits1 = reverseMap[base64Str.charCodeAt(i - 1)] << ((i % 4) * 2);
+                                    var bits2 = reverseMap[base64Str.charCodeAt(i)] >>> (6 - (i % 4) * 2);
+                                    words[nBytes >>> 2] |= (bits1 | bits2) << (24 - (nBytes % 4) * 8);
+                                    nBytes++;
+                                }
+                            }
+                            return WordArray.create(words, nBytes);
+                        }
+                    }());
+
+                    (function (Math) {
+                        var C = CryptoJS;
+                        var C_lib = C.lib;
+                        var WordArray = C_lib.WordArray;
+                        var Hasher = C_lib.Hasher;
+                        var C_algo = C.algo;
+                        var H = [];
+                        var K = [];
+                        (function () {
+                            function isPrime(n) {
+                                var sqrtN = Math.sqrt(n);
+                                for (var factor = 2; factor <= sqrtN; factor++) {
+                                    if (!(n % factor)) {
+                                        return false;
+                                    }
+                                }
+                                return true;
+                            }
+
+                            function getFractionalBits(n) {
+                                return ((n - (n | 0)) * 0x100000000) | 0;
+                            }
+
+                            var n = 2;
+                            var nPrime = 0;
+                            while (nPrime < 64) {
+                                if (isPrime(n)) {
+                                    if (nPrime < 8) {
+                                        H[nPrime] = getFractionalBits(Math.pow(n, 1 / 2));
+                                    }
+                                    K[nPrime] = getFractionalBits(Math.pow(n, 1 / 3));
+                                    nPrime++;
+                                }
+                                n++;
+                            }
+                        }());
+                        var W = [];
+                        var SHA256 = C_algo.SHA256 = Hasher.extend({
+                            _doReset: function () {
+                                this._hash = new WordArray.init(H.slice(0));
+                            }, _doProcessBlock: function (M, offset) {
+                                var H = this._hash.words;
+                                var a = H[0];
+                                var b = H[1];
+                                var c = H[2];
+                                var d = H[3];
+                                var e = H[4];
+                                var f = H[5];
+                                var g = H[6];
+                                var h = H[7];
+                                for (var i = 0; i < 64; i++) {
+                                    if (i < 16) {
+                                        W[i] = M[offset + i] | 0;
+                                    } else {
+                                        var gamma0x = W[i - 15];
+                                        var gamma0 = ((gamma0x << 25) | (gamma0x >>> 7)) ^ ((gamma0x << 14) | (gamma0x >>> 18)) ^ (gamma0x >>> 3);
+                                        var gamma1x = W[i - 2];
+                                        var gamma1 = ((gamma1x << 15) | (gamma1x >>> 17)) ^ ((gamma1x << 13) | (gamma1x >>> 19)) ^ (gamma1x >>> 10);
+                                        W[i] = gamma0 + W[i - 7] + gamma1 + W[i - 16];
+                                    }
+                                    var ch = (e & f) ^ (~e & g);
+                                    var maj = (a & b) ^ (a & c) ^ (b & c);
+                                    var sigma0 = ((a << 30) | (a >>> 2)) ^ ((a << 19) | (a >>> 13)) ^ ((a << 10) | (a >>> 22));
+                                    var sigma1 = ((e << 26) | (e >>> 6)) ^ ((e << 21) | (e >>> 11)) ^ ((e << 7) | (e >>> 25));
+                                    var t1 = h + sigma1 + ch + K[i] + W[i];
+                                    var t2 = sigma0 + maj;
+                                    h = g;
+                                    g = f;
+                                    f = e;
+                                    e = (d + t1) | 0;
+                                    d = c;
+                                    c = b;
+                                    b = a;
+                                    a = (t1 + t2) | 0;
+                                }
+                                H[0] = (H[0] + a) | 0;
+                                H[1] = (H[1] + b) | 0;
+                                H[2] = (H[2] + c) | 0;
+                                H[3] = (H[3] + d) | 0;
+                                H[4] = (H[4] + e) | 0;
+                                H[5] = (H[5] + f) | 0;
+                                H[6] = (H[6] + g) | 0;
+                                H[7] = (H[7] + h) | 0;
+                            }, _doFinalize: function () {
+                                var data = this._data;
+                                var dataWords = data.words;
+                                var nBitsTotal = this._nDataBytes * 8;
+                                var nBitsLeft = data.sigBytes * 8;
+                                dataWords[nBitsLeft >>> 5] |= 0x80 << (24 - nBitsLeft % 32);
+                                dataWords[(((nBitsLeft + 64) >>> 9) << 4) + 14] = Math.floor(nBitsTotal / 0x100000000);
+                                dataWords[(((nBitsLeft + 64) >>> 9) << 4) + 15] = nBitsTotal;
+                                data.sigBytes = dataWords.length * 4;
+                                this._process();
+                                return this._hash;
+                            }, clone: function () {
+                                var clone = Hasher.clone.call(this);
+                                clone._hash = this._hash.clone();
+                                return clone;
+                            }
+                        });
+                        C.SHA256 = Hasher._createHelper(SHA256);
+                        C.HmacSHA256 = Hasher._createHmacHelper(SHA256);
+                    }(Math));
+
+                    function SHA256_Encrypt(word) {
+                        return CryptoJS.SHA256(word).toString(CryptoJS.enc.Base64);
+                    }
+
+
+                    const jsdom = require("jsdom");
+                    const {
+                        JSDOM
+                    } = jsdom;
+                    const dom = new JSDOM(` < !DOCTYPE html > <p > Hello world < /p>`,{
+                        url:'https://m.tujia.com/hotel_shenzhen/'
+                    });
+                    window = dom.window;
+                    document = window.document;
+                    navigator = {
+                        appCodeName: "Mozilla",
+                        appMinorVersion: "0",
+                        appName: "Netscape",
+                        appVersion: "5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+                        browserLanguage: "zh-CN",
+                        cookieEnabled: true,
+                        cpuClass: "x86",
+                        language: "zh-CN",
+                        maxTouchPoints: 0,
+                        msManipulationViewsEnabled: true,
+                        msMaxTouchPoints: 0,
+                        msPointerEnabled: true,
+                        onLine: true,
+                        platform: "Win32",
+                        pointerEnabled: true,
+                        product: "Gecko",
+                        systemLanguage: "zh-CN",
+                        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+                        userLanguage: "zh-CN",
+                        vendor: "",
+                        vendorSub: "",
+                        brands:[{"brand":"Google Chrome","version":"135"},{"brand":"Not-A.Brand","version":"8"},{"brand":"Chromium","version":"135"}],
+                        webdriver: false
+                    }
+
+                    function hash(word) {
+                        a = eval(atob(word))
+                        console.log(a)
+                        var resultObj = {
+                            "server_hashes": [a['server_hashes'][0], a['server_hashes'][1]],
+                            "client_hashes": ["jQUmRy0bFPuuOoK4DeBAP3X6NdHFTVweUSfeD3AVYAg=", SHA256_Encrypt(a['client_hashes'][1])],
+                            "signals": {},
+                            "meta": {"v": "1", "challenge_id": a['meta']['challenge_id']},
+                            "origin": "https://duckduckgo.com",
+                            "stack": "Error\\n    at ct (https://duckduckgo.com/dist/wpm.chat.a6f29b451c1c384e6131.js:1:37338)\\n    at async dispatchServiceStreamNewVQD (https://duckduckgo.com/dist/wpm.chat.a6f29b451c1c384e6131.js:1:55602)"
+                        };
+                        result = btoa(JSON.stringify(resultObj))
+                        return result
+                    }
+
+                    """
 
 
 def reload_check():
@@ -308,80 +818,6 @@ def get_model_by_autoupdate(model_id: Optional[str] = None, cooldown_seconds: in
 ################################################################################################
 
 
-# 元素存放变量及时间
-vqd4_time = ("", 0)
-vqd4_hash_time = ("", 0)
-
-def extract_x_vqd_4(default_host='duckduckgo.com', max_retries=3, retry_delay=1):
-    """
-    获取 x-vqd-4 token
-    Args:
-        default_host: 请求的主机地址
-        max_retries: 最大重试次数
-        retry_delay: 重试延迟时间(秒)
-    Returns:
-        str: 成功返回token，失败返回空字符串
-    """
-    url = f"https://{default_host}/duckchat/v1/status"
-    global vqd4_time
-    global vqd4_hash_time
-    headers = {
-        'Accept': '*/*',  # 修正 Accept 头
-        'Sec-Fetch-Site': 'same-origin',
-        'Accept-Language': 'zh-CN,zh-Hans;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Sec-Fetch-Mode': 'cors',
-        'Cache-Control': 'no-store',  # 修正缓存控制
-        'Host': default_host,
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15 Ddg/18.4',
-        'Referer': f"https://{default_host}/",
-        'Connection': 'keep-alive',
-        'Sec-Fetch-Dest': 'empty',
-        'Cookie': 'dcm=3',
-        'X-DuckDuckGo-Client': 'macOS',
-        'x-vqd-accept': '1'
-    }
-
-    for attempt in range(max_retries):
-        try:
-            response = requests.get(
-                url,
-                headers=headers,
-                timeout=10,  # 添加超时设置
-                verify=False  # 忽略 SSL 验证
-            )
-            response.encoding = 'utf-8'
-
-            if response.status_code == 200:
-                # print(response.text)
-                # print(response.headers)
-                vqd4 = response.headers.get('x-vqd-4', '')
-                vqd4_hash = response.headers.get('x-vqd-hash-1', '')  # 假设存在 x-vqd-4-hash 头
-                if vqd4 and vqd4_hash:
-                    vqd4_time = (vqd4, int(time.time() * 1000))
-                    vqd4_hash_time = (vqd4_hash, int(time.time() * 1000))
-                    if debug:
-                        print(f"extract_x_vqd_4() 成功获取vqd4: {vqd4} , vqd4_hash: {vqd4_hash}")
-                    return
-                else:
-                    if debug:
-                        print(f"extract_x_vqd_4() Token或Hash为空，尝试次数: {attempt + 1}/{max_retries}")
-
-            # 如果不是最后一次尝试，则等待后重试
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
-
-        except requests.RequestException as e:
-            if debug:
-                print(f"请求异常: {e}，尝试次数: {attempt + 1}/{max_retries}")
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
-            continue
-
-    if debug:
-        print("获取token失败，已达到最大重试次数")
-
-
 def parse_response(response_text):
     """
     逐行解析
@@ -396,7 +832,7 @@ def parse_response(response_text):
     print(result)
 
 
-def chat_completion_message(user_prompt,  model=base_model,
+def chat_completion_message(user_prompt, model=base_model,
                             system_message='You are a helpful assistant.',
                             user_id: str = None, session_id: str = None, default_host="duckduckgo.com"
                             , stream=False, temperature=0.3, max_tokens=1024, top_p=0.5, frequency_penalty=0,
@@ -432,8 +868,6 @@ def chat_completion_messages(
         max_tokens=1024, top_p=0.5,
         frequency_penalty=0, presence_penalty=0):
     try:
-        global vqd4_time
-        global vqd4_hash_time
         # 确保model有效
         if not model or model == "auto":
             model = get_auto_model()
@@ -442,84 +876,92 @@ def chat_completion_messages(
         if debug:
             print(f"chat_completion_messages 校准后的model: {model}")
 
-        # 处理 token
-        if vqd4_time[0] == '' or vqd4_hash_time[0] == '':
-            extract_x_vqd_4()
-        x_vqd_4 = vqd4_time[0]
-        vqd4_hash = vqd4_hash_time[0]
+        # makesure system-->user
+        """将messages列表中所有role为system的条目改为user"""
+        # print(messages)
+        for msg in messages:
+            if msg.get("role") == "system":
+                msg["role"] = "user"
+        # print(messages)
 
-
-        if debug:
-            print(f"chat_completion_messages 获取的token: {x_vqd_4}, hash: {vqd4_hash}")
-
+        url_status = 'https://duckduckgo.com/duckchat/v1/status'
         headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'text/event-stream',
-            'Sec-Fetch-Site': 'same-origin',
-            'Accept-Language': 'zh-CN,zh-Hans;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Sec-Fetch-Mode': 'cors',
-            'Host': default_host,
-            'Origin': f"https://{default_host}",
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15 Ddg/18.4',
-            'Referer': f"https://{default_host}/",
-            'Connection': 'keep-alive',
-            'Cookie': 'dcm=3; dcs=1',
-            'Sec-Fetch-Dest': 'empty',
-            'x-fe-version': 'serp_20250411_055722_ET-227034fa144d75d4af83',
-            'X-Vqd-4': x_vqd_4,
-            'X-DuckDuckGo-Client': 'macOS',
-            'X-Vqd-Hash-1': vqd4_hash
+            "Host": f"{default_host}",
+            "Connection": "keep-alive",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "Cache-Control": "no-store",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+            "sec-ch-ua": "\"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\"",
+            "sec-ch-ua-mobile": "?0",
+            "x-vqd-accept": "1",
+            "Accept": "*/*",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
+            "Referer": f"https://{default_host}/",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "zh-CN,zh;q=0.9",
+            "Cookie": "dcm=3; dcs=1"
         }
+        response = requests.get(url_status, headers=headers)
+        response.encoding = 'utf-8'
+        token = response.headers['x-vqd-4']
+        x_vqd_hash = response.headers['x-vqd-hash-1']
+        if debug:
+            print("token: ", token)
+        # 调用 JavaScript 函数
+        ctx = execjs.compile(js_code)
+        hash_result = ctx.call("hash", x_vqd_hash)
+        if debug:
+            print("x_vqd_hash:", x_vqd_hash[:10])
+            print("hash_result:", hash_result[:10])
+        # update current time
+        current_time = datetime.now()
+        formatted_time = current_time.strftime("%Y%m%d_%H%M%S")
 
-        # 检查模型，如果messages 包含 system那么修改为user
-        for message in messages:
-            if message.get("role") == "system":
-                message["role"] = "user"
+        headers_chat = {
+            "authority": f"{default_host}",
+            "method": "POST",
+            "path": "/duckchat/v1/chat",
+            "scheme": "https",
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "zh-CN,zh;q=0.9",
+            "cache-control": "no-cache",
+            "content-length": "71",
+            "content-type": "application/json",
+            "cookie": "dcm=3; dcs=1",
+            "origin": f"https://{default_host}",
+            "pragma": "no-cache",
+            "priority": "u=1, i",
+            "referer": f"https://{default_host}/",
+            "sec-ch-ua": "\"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+            "x-fe-version": f"serp_{formatted_time}_ET-403cce4cc99081725d2c",
+            "x-vqd-4": f"{token}",
+            "x-vqd-hash-1": f"{hash_result}"
+        }
 
         data = {
             "model": model,
             "messages": messages
         }
-        return chat_completion(default_host=default_host, model=model, headers=headers, payload=data)
+        url_chat = "https://duckduckgo.com/duckchat/v1/chat"
+        res = requests.post(url=url_chat, headers=headers_chat, json=data)
+        res.encoding = 'utf-8'
+        # print(res)
+        # print(res.text)
 
-    except Exception as e:
-        print(f"x1  使用模型[{model}]发生了异常：", e)
-        traceback.print_exc()
-    return ""
-
-
-def chat_completion(default_host, model, headers, payload):
-    global vqd4_time
-    global vqd4_hash_time
-    try:
-        response = requests.post(f'https://{default_host}/duckchat/v1/chat', headers=headers, json=payload)
-        response.encoding = 'utf-8'  # 明确设置字符编码
-        # response.raise_for_status()
-
-        print("chat Status Code :", response.status_code)
-        print("chat Content-Type: ", response.headers.get('Content-Type'))
-        print("chat response.text: ",response.text)
-        print("response.headers: ",response.headers)
-
+        # 解析响应内容
         final_content = ""
         if response.status_code == 200:
-            # # 将 headers 转换为普通字典
-            # headers_dict = dict(response.headers)
-            # # 将字典转换为 JSON 字符串
-            # headers_json = json.dumps(headers_dict, ensure_ascii=False, indent=4)
-            # print(headers_json)
-            # 解析请求头
-            vqd4 = response.headers.get('x-vqd-4', '')
-            vqd4_hash = response.headers.get('x-vqd-hash-1', '')  # 假设存在 x-vqd-4-hash 头
-            if vqd4 and vqd4_hash:
-                vqd4_time = (vqd4, int(time.time() * 1000))
-                vqd4_hash_time = (vqd4_hash, int(time.time() * 1000))
-
-
-            # 解析响应内容
-            for line in response.iter_lines(decode_unicode=True):
-                print(line)
+            for line in res.iter_lines(decode_unicode=True):
+                # print(line)
                 # print(line)
                 # 检查 if 'data: [DONE]'在行中进行下一步动作
                 if 'data: [DONE]' in line:
@@ -531,47 +973,43 @@ def chat_completion(default_host, model, headers, payload):
                     if 'message' in datax:
                         final_content += datax['message']
                         # print( final_content)
-            # 保存最终的content结果
-            final_result = final_content
-        return final_result
+            # # 保存最终的content结果
+            # final_result = final_content
+            if debug:
+                print(final_content)
+            return final_content
     except Exception as e:
-        print(f"⬇️2 使用模型[{model}]发生了异常：", e)
+        print(f"chat_completion_messages  使用模型[{model}]发生了异常：", e)
         traceback.print_exc()
+    return ""
 
 
-    # user_prompt, x_vqd_4='', model=base_model,
 def mods(model, prompt):
     t1 = time.time()
     res = chat_completion_message(user_prompt=prompt, model=model)
     t2 = time.time()
-    print(
-        f"========={model}--->测试耗时【{t2 - t1}】=========本轮开始\r\n{res}\r\n======本文结束======")
+    print(f"\r\n=======【{model}]===>【{t2 - t1} 秒】================\r\n===========本轮开始===========\r\n{res}\r\n===========本文结束===========")
 
 
 # 测试代码
 if __name__ == "__main__":
+    debug = False
     time1 = time.time() * 1000
     result_json = get_models()
     time2 = time.time() * 1000
-    print(f"耗时: {time2 - time1}")
-    print(result_json)
-    result_json2 = get_models()
-    time3 = time.time() * 1000
-    print(f"耗时2: {time3 - time2}")
-    print(result_json2)
-
-    print(f"获取自动模型1 get_model_by_autoupdate :{get_model_by_autoupdate('hello')}")
-    print(f"获取自动模型2 get_auto_model :{get_auto_model()}")
-    print(f"获取自动模型3 cached_models :{cached_models}")
+    print(f"耗时: {time2 - time1}\r\n获取模型列表:\r\n{result_json}")
+    # result_json2 = get_models()
+    # time3 = time.time() * 1000
+    # print(f"耗时2: {time3 - time2}")
+    # print(result_json2)
+    #
+    # print(f"获取自动模型1 get_model_by_autoupdate :{get_model_by_autoupdate('hello')}")
+    # print(f"获取自动模型2 get_auto_model :{get_auto_model()}")
+    # print(f"获取自动模型3 cached_models :{cached_models}")
 
     p = "你是谁?你使用的是什么模型?你的知识库截止到什么时间? "
     model_ids = [model['id'] for model in cached_models['data']]
     for id in model_ids:
         mods(id, p)
-    # extract_x_vqd_4()
-    # # vqd4_time = ("", 0)
-    # # vqd4_hash_time = ("", 0)
-    # print(f"vqd4_time: {vqd4_time}")
-    # print(f"vqd4: {vqd4_time[0]}")
-    # print(f"vqd4_hash_time: {vqd4_hash_time}")
-    # print(f"vqd4_hash: {vqd4_hash_time[0]}")
+    # mes=[{"role": "system", "content": "you are a bot."},{"role": "user", "content": "Say this is a test!"},{"role":"assistant","content":"This is a test!"},{"role": "user", "content": "你擅长什么技能"}]
+    # chat_completion_messages(mes,model="gpt-4o-mini")

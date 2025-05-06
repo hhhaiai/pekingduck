@@ -10,4 +10,4 @@ urllib3
 uvicorn
 uvloop
 httptools
-
+PyExecJS
