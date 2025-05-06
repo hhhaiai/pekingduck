@@ -12,14 +12,14 @@ import traceback
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-debug = True
+debug = False
 last_request_time = 0  # 上次请求的时间戳
 cache_duration = 14400  # 缓存有效期，单位：秒 (4小时)
 '''用于存储缓存的模型数据'''
 cached_models = {
     "object": "list",
     "data": [],
-    "version": "1.0.2",
+    "version": "1.0.3",
     "provider": "DuckAI",
     "name": "DuckAI",
     "default_locale": "zh-CN",
