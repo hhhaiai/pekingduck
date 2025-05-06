@@ -24,7 +24,7 @@ cached_models = {
     "name": "DuckAI",
     "default_locale": "zh-CN",
     "status": True,
-    "time": "20250506"
+    "time": "20250507"
 }
 
 '''基础模型'''
