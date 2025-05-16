@@ -12,19 +12,19 @@ import traceback
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-debug = False
+debug = True
 last_request_time = 0  # 上次请求的时间戳
 cache_duration = 14400  # 缓存有效期，单位：秒 (4小时)
 '''用于存储缓存的模型数据'''
 cached_models = {
     "object": "list",
     "data": [],
-    "version": "1.0.3",
+    "version": "1.0.4",
     "provider": "DuckAI",
     "name": "DuckAI",
     "default_locale": "zh-CN",
     "status": True,
-    "time": "20250507"
+    "time": "20250516"
 }
 
 '''基础模型'''
@@ -551,12 +551,12 @@ def reload_check():
     cached_models = {
         "object": "list",
         "data": [],
-        "version": "1.0.1",
+        "version": "1.0.4",
         "provider": "DuckAI",
         "name": "DuckAI",
         "default_locale": "zh-CN",
         "status": True,
-        "time": 0
+        "time": "20250516"
     }
 
     # 重新加载模型数据
@@ -632,7 +632,9 @@ def get_models():
             if debug:
                 print(f"success get model ")
         except Exception as e:
-            print(f"000000---{e}")
+            if debug:
+                print(f"000000---{e}")
+            pass
 
     return json.dumps(cached_models)
 
@@ -714,19 +716,25 @@ def get_model_impl_by_playwright():
             # 导航到网页
             page.goto("https://duckduckgo.com/?q=DuckDuckGo+AI+Chat&ia=chat&duckai=1")
 
-            # print(page.content())
+            if debug:
+                print("点击试试看\r\n",page.content())
             # 点击试试看
             # page.locator("//div[@class='G7rDHS2k8fykjYYMbnTg']/button").click()
             tool_selector = "//div[@class='G7rDHS2k8fykjYYMbnTg']/button"
             page.wait_for_selector(tool_selector, state="visible")
             page.locator(tool_selector).click()
 
+            if debug:
+                print("点击我同意\r\n",page.content())
             # 点击我同意
             # page.locator("//div[@class='G7rDHS2k8fykjYYMbnTg NHrnRvFtkZSdVRA6P3kD']/button").click()
             tool_selector = "//div[@class='G7rDHS2k8fykjYYMbnTg NHrnRvFtkZSdVRA6P3kD']/button"
             page.wait_for_selector(tool_selector, state="visible")
             page.locator(tool_selector).click()
 
+
+            if debug:
+                print("点击下拉框，出现5个AI工具\r\n",page.content())
             # 点击下拉框，出现5个AI工具
             # page.locator('//div[@class="eHTKOmyhnmDrrdAFuwDc"]/button').click()
             tool_selector = 'div.eHTKOmyhnmDrrdAFuwDc > button'
@@ -739,6 +747,8 @@ def get_model_impl_by_playwright():
                 timeout=20000
             )
 
+            if debug:
+                print("解析模型信息\r\n",page.content())
             # 解析模型信息
             if debug:
                 print("\n开始解析模型信息...")
@@ -834,7 +844,7 @@ def parse_response(response_text):
 
 def chat_completion_message(user_prompt, model=base_model,
                             system_message='You are a helpful assistant.',
-                            user_id: str = None, session_id: str = None, default_host="duckduckgo.com"
+                            user_id: str = "", session_id: str = "", default_host="duckduckgo.com"
                             , stream=False, temperature=0.3, max_tokens=1024, top_p=0.5, frequency_penalty=0,
                             presence_penalty=0):
     """
@@ -988,7 +998,7 @@ def mods(model, prompt):
     t1 = time.time()
     res = chat_completion_message(user_prompt=prompt, model=model)
     t2 = time.time()
-    print(f"\r\n=======【{model}]===>【{t2 - t1} 秒】================\r\n===========本轮开始===========\r\n{res}\r\n===========本文结束===========")
+    print(f"\r\n=======【{model}]===>【{t2 - t1} 秒】================\r\n--------本轮开始--------\r\n{res}\r\n--------本文结束--------")
 
 
 # 测试代码

@@ -24,7 +24,7 @@ debug = True
 app = FastAPI(
     title="pekingduck",
     description="Pekingduck is delious~",
-    version="1.0.3|2025.5.7"
+    version="1.0.4|2025.5.16"
 )
 
 
@@ -36,7 +36,8 @@ class APIServer:
         self.encoding = tiktoken.get_encoding("cl100k_base")
         self._setup_routes()
         self._setup_scheduler()
-        dg.get_models()
+        dg.reload_check()
+
     def _setup_scheduler(self):
         """ Schedule tasks to check and reload routes and models at regular intervals. """
         self.scheduler = BackgroundScheduler()
@@ -46,6 +47,7 @@ class APIServer:
         # Scheduled Task 2: Reload models every 30 minutes (1800 seconds). This task will check and update the model data periodically
         self.scheduler.add_job(self._reload_check, 'interval', seconds=60 * 30)
         self.scheduler.start()
+
     def _setup_routes(self) -> None:
         """Initialize API routes"""
         self.routes = """Initialize API routes"""
