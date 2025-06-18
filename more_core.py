@@ -24,7 +24,7 @@ debug = True
 app = FastAPI(
     title="pekingduck",
     description="Pekingduck is delious~",
-    version="1.0.4|2025.5.16"
+    version="1.0.5|2025.6.18"
 )
 
 

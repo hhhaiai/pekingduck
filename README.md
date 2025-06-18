@@ -28,6 +28,8 @@ docker run -d --name ppdemo \
   --cap-add=SYS_ADMIN \
   ppdemo
 
+docker run -d --restart always  --name pekingduck  -p 5009:7860 ghcr.io/hhhaiai/pekingduck:latest
+
 ```
 
 * test
