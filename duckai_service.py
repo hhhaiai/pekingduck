@@ -1,10 +1,11 @@
 import requests
-from playwright.sync_api import sync_playwright
 import json
 import base_get_channel as channel
 from typing import Optional, Dict
 import time
 import execjs
+import subprocess
+import random
 from datetime import datetime, timedelta
 # 禁用 SSL 警告
 import urllib3
@@ -13,19 +14,88 @@ import base64
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# 自定义 subprocess.Popen 类
+class MySubprocessPopen(subprocess.Popen):
+    def __init__(self, *args, **kwargs):
+        super().__init__(encoding='UTF-8', *args, **kwargs)
+
+# 替换默认的 subprocess.Popen
+subprocess.Popen = MySubprocessPopen
+
 debug = True
 last_request_time = 0  # 上次请求的时间戳
 cache_duration = 14400  # 缓存有效期，单位：秒 (4小时)
 '''用于存储缓存的模型数据'''
 cached_models = {
     "object": "list",
-    "data": [],
-    "version": "1.0.5",
+    "data": [
+        {
+            "id": "gpt-4o-mini",
+            "object": "model",
+            "model": "gpt-4o-mini",
+            "created": int(time.time() * 1000),
+            "name": "GPT-4o mini",
+            "support": "text",
+            "owned_by": "DuckAI",
+            "description": "High built-in moderation"
+        },
+        {
+            "id": "gpt-5-mini",
+            "object": "model",
+            "model": "gpt-5-mini",
+            "created": int(time.time() * 1000),
+            "name": "GPT-5 mini",
+            "support": "text",
+            "owned_by": "DuckAI",
+            "description": "High built-in moderation"
+        },
+        {
+            "id": "openai/gpt-oss-120b",
+            "object": "model",
+            "model": "openai/gpt-oss-120b",
+            "created": int(time.time() * 1000),
+            "name": "GPT-OSS 120B",
+            "support": "text",
+            "owned_by": "DuckAI",
+            "description": "High built-in moderation"
+        },
+        {
+            "id": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+            "object": "model",
+            "model": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+            "created": int(time.time() * 1000),
+            "name": "Llama 4 Scout",
+            "support": "text",
+            "owned_by": "DuckAI",
+            "description": "High built-in moderation"
+        },
+        {
+            "id": "claude-3-5-haiku-latest",
+            "object": "model",
+            "model": "claude-3-5-haiku-latest",
+            "created": int(time.time() * 1000),
+            "name": "Claude Haiku 3.5",
+            "support": "text",
+            "owned_by": "DuckAI",
+            "description": "High built-in moderation"
+        },
+        {
+            "id": "mistralai/Mistral-Small-24B-Instruct-2501",
+            "object": "model",
+            "model": "mistralai/Mistral-Small-24B-Instruct-2501",
+            "created": int(time.time() * 1000),
+            "name": "Mistral Small 3",
+            "support": "text",
+            "owned_by": "DuckAI",
+            "description": "High built-in moderation"
+        }
+    ],
+    "version": "1.0.6",
     "provider": "DuckAI",
     "name": "DuckAI",
     "default_locale": "zh-CN",
     "status": True,
-    "time": "20250618"
+    "time": "20250925"
 }
 
 '''基础模型'''
@@ -494,8 +564,8 @@ const jsdom = require("jsdom");
 const {
     JSDOM
 } = jsdom;
-const dom = new JSDOM(` < !DOCTYPE html > <p > Hello world < /p>`,{
-    url:'https://m.tujia.com/hotel_shenzhen/'
+const dom = new JSDOM(` < !DOCTYPE html > <p > Hello world < /p>`, {
+    url: 'https://m.tujia.com/hotel_shenzhen/'
 });
 window = dom.window;
 document = window.document;
@@ -521,45 +591,97 @@ navigator = {
     userLanguage: "zh-CN",
     vendor: "",
     vendorSub: "",
-    brands:[{"brand":"Google Chrome","version":"135"},{"brand":"Not-A.Brand","version":"8"},{"brand":"Chromium","version":"135"}],
+    brands: [{"brand": "Google Chrome", "version": "135"}, {
+        "brand": "Not-A.Brand",
+        "version": "8"
+    }, {"brand": "Chromium", "version": "135"}],
     webdriver: false
 }
+HTMLElement = function (arg) {
+
+}
+Element = function (arg) {
+
+}
+HTMLDivElement = function (arg) {
+
+}
+window.top = window
 
 function dd(word) {
-    a = eval(atob(word))
-    console.log(a)
-    result = btoa(JSON.stringify({
-        "server_hashes": [a['server_hashes'][0], a['server_hashes'][1]],
-        "client_hashes": ["SFGRWX9mxQ47bYmycqmSySnzSAgk5BzgeRkorNyb6KQ=", SHA256_Encrypt(a['client_hashes'][1])],
-        "signals": {},
-        "meta": {"v": "3", "challenge_id": a['meta']['challenge_id']},"timestamp":Date.now()+"",
-        "origin": "https://duckduckgo.com",
-        "stack": "Error\nat bn (https://duckduckgo.com/dist/wpm.chat.16d105cd2e432a85e59b.js:1:74803)\nat async dispatchServiceInitialVQD (https://duckduckgo.com/dist/wpm.chat.16d105cd2e432a85e59b.js:1:99529)"}
-    ))
-    return result
+        eval(atob(word)).then(a => {
+            var result = btoa(JSON.stringify({
+                    "server_hashes": [a['server_hashes'][0], a['server_hashes'][1], a['server_hashes'][2]],
+                    "client_hashes": ["lVnR41+B1QVgJ8wHa1GA6gqGBhJ9Vv3y+GHJGFzBfLc=", SHA256_Encrypt(a['client_hashes'][1]), SHA256_Encrypt(a['client_hashes'][2])],
+                    "signals": {},
+                    "meta": {
+                        "v": "4", "challenge_id": a['meta']['challenge_id'], "timestamp": a['meta']['timestamp'],
+                        "origin": "https://duckduckgo.com",
+                        "stack": "Error\\nat l (https://duckduckgo.com/dist/wpm.main.f933aba3d6f72c35f872.js:1:358651)\\nat async https://duckduckgo.com/dist/wpm.main.f933aba3d6f72c35f872.js:1:336990",
+                        "duration": Math.floor(Math.random() * 10000) + ''
+                    }
+                }
+            ))
+        console.log(result)
+    }).catch(e => {})
 }
-word = 'KGZ1bmN0aW9uKCl7Y29uc3QgXzB4NDk0OTY2PV8weDE4Nzg7KGZ1bmN0aW9uKF8weDNiYmQwYixfMHgyMzRjNjgpe2NvbnN0IF8weDQwZjY0Nj1fMHgxODc4LF8weDUzYjcwYz1fMHgzYmJkMGIoKTt3aGlsZSghIVtdKXt0cnl7Y29uc3QgXzB4M2ZkYjgyPS1wYXJzZUludChfMHg0MGY2NDYoMHgxZjMpKS8weDErLXBhcnNlSW50KF8weDQwZjY0NigweDFmOCkpLzB4MitwYXJzZUludChfMHg0MGY2NDYoMHgyMDIpKS8weDMrLXBhcnNlSW50KF8weDQwZjY0NigweDFmNCkpLzB4NCstcGFyc2VJbnQoXzB4NDBmNjQ2KDB4MWY5KSkvMHg1Ky1wYXJzZUludChfMHg0MGY2NDYoMHgxZmMpKS8weDYrcGFyc2VJbnQoXzB4NDBmNjQ2KDB4MWYwKSkvMHg3KihwYXJzZUludChfMHg0MGY2NDYoMHgyMDMpKS8weDgpO2lmKF8weDNmZGI4Mj09PV8weDIzNGM2OClicmVhaztlbHNlIF8weDUzYjcwY1sncHVzaCddKF8weDUzYjcwY1snc2hpZnQnXSgpKTt9Y2F0Y2goXzB4ZjJmYmRhKXtfMHg1M2I3MGNbJ3B1c2gnXShfMHg1M2I3MGNbJ3NoaWZ0J10oKSk7fX19KF8weDIzMDEsMHhhMjliYSkpO2Z1bmN0aW9uIF8weDE4NzgoXzB4OTViZGEwLF8weDQwZTkyMil7Y29uc3QgXzB4MjMwMWU0PV8weDIzMDEoKTtyZXR1cm4gXzB4MTg3OD1mdW5jdGlvbihfMHgxODc4MDQsXzB4MzgxMDA4KXtfMHgxODc4MDQ9XzB4MTg3ODA0LTB4MWVmO2xldCBfMHgzMmVlNjg9XzB4MjMwMWU0W18weDE4NzgwNF07cmV0dXJuIF8weDMyZWU2ODt9LF8weDE4NzgoXzB4OTViZGEwLF8weDQwZTkyMik7fWZ1bmN0aW9uIF8weDIzMDEoKXtjb25zdCBfMHg0YjNjOGQ9WycyNjQzOTg1VXp2Z0xDJywnbWFwJywnY3JlYXRlRWxlbWVudCcsJzIwOTQ3MzhvZFNabUMnLCdicmFuZHMnLCcxNzUwMDg5NzI5Mzk4JywneVBpa3ozd2M1Z0V2OEw2NGE5ZW45MjNBamtlaXVwbDUva1ZSWW9tcXcxND0nLCdqb2luJywnXHgyMjt2PVx4MjInLCczMzUxMzY2QXFJdUtlJywnMzA2NFV0RUJlRCcsJ3VzZXJBZ2VudERhdGEnLCc1emdHTDkwVHhoQkY2RHREbDkzRm95cS9BK2ZKZWJoUW5OS1A4a2JuU2drPScsJ3F1ZXJ5U2VsZWN0b3JBbGwnLCc8cD48ZGl2PjwvcD48cD48L2RpdicsJzU5OTY5bGJjREJCJywndmVyc2lvbicsJ2RpdicsJzEzMTkyNzRyempZdUsnLCc0OTY5NjIwQkh6WkNuJywnaW5uZXJIVE1MJywnYnJhbmQnLCdsZW5ndGgnLCc1ODUyODRvS1BkQ2InXTtfMHgyMzAxPWZ1bmN0aW9uKCl7cmV0dXJuIF8weDRiM2M4ZDt9O3JldHVybiBfMHgyMzAxKCk7fXJldHVybnsnc2VydmVyX2hhc2hlcyc6W18weDQ5NDk2NigweDIwNSksXzB4NDk0OTY2KDB4MWZmKV0sJ2NsaWVudF9oYXNoZXMnOltuYXZpZ2F0b3JbJ3VzZXJBZ2VudCddKyhuYXZpZ2F0b3JbXzB4NDk0OTY2KDB4MjA0KV0/bmF2aWdhdG9yW18weDQ5NDk2NigweDIwNCldW18weDQ5NDk2NigweDFmZCldW18weDQ5NDk2NigweDFmYSldKF8weDQ5NWRiNz0+J1x4MjInK18weDQ5NWRiN1tfMHg0OTQ5NjYoMHgxZjYpXStfMHg0OTQ5NjYoMHgyMDEpK18weDQ5NWRiN1tfMHg0OTQ5NjYoMHgxZjEpXSsnXHgyMicpW18weDQ5NDk2NigweDIwMCldKCcsXHgyMCcpOicnKSwoZnVuY3Rpb24oKXtjb25zdCBfMHgzODI2YTA9XzB4NDk0OTY2LF8weDFmZjFmNj1kb2N1bWVudFtfMHgzODI2YTAoMHgxZmIpXShfMHgzODI2YTAoMHgxZjIpKTtyZXR1cm4gXzB4MWZmMWY2Wydpbm5lckhUTUwnXT1fMHgzODI2YTAoMHgxZWYpLFN0cmluZygweDFjYjArXzB4MWZmMWY2W18weDM4MjZhMCgweDFmNSldW18weDM4MjZhMCgweDFmNyldKl8weDFmZjFmNltfMHgzODI2YTAoMHgyMDYpXSgnKicpW18weDM4MjZhMCgweDFmNyldKTt9KCkpXSwnc2lnbmFscyc6e30sJ21ldGEnOnsndic6JzMnLCdjaGFsbGVuZ2VfaWQnOicxODQ4NTM5MDhmYTQ3ODBlMzcyNmE4ZTVjNmFhY2ZlYTkzOGQ4ZmMzMmJjOGRmODc1MDM4Yjk3YTI1Yzk1MzBiaDhqYnQnLCd0aW1lc3RhbXAnOl8weDQ5NDk2NigweDFmZSl9fTt9KSgp'
-
-console.log(dd(word))
 """
+
+def exe_js(code):
+    """执行 JavaScript 代码"""
+    try:
+        p = subprocess.Popen(['node'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    except Exception as e:
+        p = subprocess.Popen(['nodejs'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    stdout, stderr = p.communicate(code)
+    return stdout.encode().decode().strip()
+
+def get_hash(session):
+    """获取 VQD hash"""
+    success = False
+    while not success:
+        try:
+            # print("get_hash 开始...")
+            
+            headers = {
+                "Host": "duckduckgo.com",
+                "Connection": "keep-alive",
+                "sec-ch-ua-platform": "\"Windows\"",
+                "Cache-Control": "no-store",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+                "sec-ch-ua": "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Google Chrome\";v=\"138\"",
+                "sec-ch-ua-mobile": "?0",
+                "x-vqd-accept": "1",
+                "Accept": "*/*",
+                "Sec-Fetch-Site": "same-origin",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Dest": "empty",
+                "Referer": "https://duckduckgo.com/",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "Cookie": "dcm=3; dcs=1"
+            }
+            
+            url = 'https://duckduckgo.com/duckchat/v1/status'
+            response = session.get(url, headers=headers)
+            
+            # print("get_hash 响应状态:", response.status_code)
+            vqdhash = response.headers['x-vqd-hash-1']
+            # print("get_hash 原始 vqdhash:", vqdhash[:30], "...")
+            
+            # 使用 JavaScript 处理 hash
+            vqdhash = exe_js(js_code + "\ndd('" + vqdhash + "')")
+            # print("get_hash 处理后:", vqdhash[:30], "...")
+            
+            if vqdhash != '':
+                success = True
+                return vqdhash
+        except Exception as e:
+            print(f"get_hash 错误: {e}")
+            time.sleep(5)
+            return get_hash(session)
 
 
 def reload_check():
-    """
-    清除 cached_models 中的 data，重新加载模型数据，并获取最优模型
-    """
-    global cached_models
-    # 清除 cached_models 中的 data
-    cached_models = {
-        "object": "list",
-        "data": [],
-        "version": "1.0.4",
-        "provider": "DuckAI",
-        "name": "DuckAI",
-        "default_locale": "zh-CN",
-        "status": True,
-        "time": "20250516"
-    }
 
     # 重新加载模型数据
     get_models()
@@ -622,144 +744,10 @@ def get_auto_model(cooldown_seconds: int = 300) -> str:
 
 def get_models():
     """model data retrieval with thread safety"""
-    global cached_models, last_request_time
-    current_time = time.time()
-    if (current_time - last_request_time) > cache_duration:
-        try:
-            if debug:
-                print(f"will get model ")
-            # Update timestamp before awaiting to prevent concurrent updates
-            get_model_impl_by_playwright()
-            last_request_time = current_time
-            if debug:
-                print(f"success get model ")
-        except Exception as e:
-            if debug:
-                print(f"000000---{e}")
-            pass
+    global cached_models
 
     return json.dumps(cached_models)
 
-
-def parser_models_info_form_page(page):
-    global cached_models
-    models = page.query_selector_all('ul[role="radiogroup"] > li')
-
-    # 创建现有模型的 ID 集合用于快速查找
-    existing_ids = {item["id"] for item in cached_models['data']}
-    if debug:
-        print(existing_ids)
-    result = []
-    # 确保有内容时更新
-    is_update = False
-    for model in models:
-        # 使用更精确的选择器
-        name_element = model.query_selector('.J58ouJfofMIxA2Ukt6lA')
-        description_element = model.query_selector('.tDjqHxDUIeGL37tpvoSI')
-        # 模型真实名字
-        value = model.query_selector('input').get_attribute('value')
-        # 确保有效
-        if not name_element or not value:
-            continue
-
-        # 模型名字
-        name = name_element.inner_text()
-        description = description_element.inner_text() if description_element else ""
-        # 确定描述供应商
-        owned_by = channel.get_channel_company(value, description)
-        # 生成新模型数据
-        new_model = {
-            "id": value,
-            "object": "model",
-            "model": value,
-            "created": int(time.time() * 1000),  # 使用当前时间戳
-            "name": name,
-            "support": "text",
-            "owned_by": owned_by,
-            "description": name
-        }
-        if debug:
-            print(f"new_model: {new_model}")
-        # 记录成功
-        record_call(value)
-        if debug:
-            print(f"after record_call")
-        # 检查是否已存在相同 ID 的模型
-        if new_model['id'] in existing_ids:
-            # 更新已存在的模型数据
-            for idx, item in enumerate(cached_models['data']):
-                if item['id'] == new_model['id']:
-                    cached_models['data'][idx] = new_model  # 完全替换旧数据
-                    break
-        else:
-            # 添加新模型到缓存
-            cached_models['data'].append(new_model)
-        if debug:
-            print(f"解析cached_models模型信息: {cached_models}")
-
-        is_updated = True
-
-    # 仅在检测到更新时刷新时间戳
-    if is_updated:
-        cached_models['time'] = int(time.time() * 1000)
-    return json.dumps(cached_models, ensure_ascii=False)
-
-
-def get_model_impl_by_playwright():
-    """
-        从网页获取获取模型
-    """
-    with sync_playwright() as p:
-        browser = p.firefox.launch(headless=True)  # headless=False 表示显示浏览器窗口
-        context = browser.new_context()
-        page = browser.new_page()
-
-        try:
-            # 导航到网页
-            page.goto("https://duckduckgo.com/?q=DuckDuckGo+AI+Chat&ia=chat&duckai=1")
-
-            if debug:
-                print("点击试试看\r\n",page.content())
-            # 点击试试看
-            # page.locator("//div[@class='G7rDHS2k8fykjYYMbnTg']/button").click()
-            tool_selector = "//div[@class='G7rDHS2k8fykjYYMbnTg']/button"
-            page.wait_for_selector(tool_selector, state="visible")
-            page.locator(tool_selector).click()
-
-            if debug:
-                print("点击我同意\r\n",page.content())
-            # 点击我同意
-            # page.locator("//div[@class='G7rDHS2k8fykjYYMbnTg NHrnRvFtkZSdVRA6P3kD']/button").click()
-            tool_selector = "//div[@class='G7rDHS2k8fykjYYMbnTg NHrnRvFtkZSdVRA6P3kD']/button"
-            page.wait_for_selector(tool_selector, state="visible")
-            page.locator(tool_selector).click()
-
-
-            if debug:
-                print("点击下拉框，出现5个AI工具\r\n",page.content())
-            # 点击下拉框，出现5个AI工具
-            # page.locator('//div[@class="eHTKOmyhnmDrrdAFuwDc"]/button').click()
-            tool_selector = 'div.eHTKOmyhnmDrrdAFuwDc > button'
-            page.wait_for_selector(tool_selector, state="visible", timeout=15000)
-            page.locator(tool_selector).click(delay=500)
-
-            # 等待所有模型加载完成
-            page.wait_for_function(
-                "document.querySelectorAll('ul[role=\"radiogroup\"] > li').length > 0",
-                timeout=20000
-            )
-
-            if debug:
-                print("解析模型信息\r\n",page.content())
-            # 解析模型信息
-            if debug:
-                print("\n开始解析模型信息...")
-            parser_models_info_form_page(page)
-
-        except Exception as e:
-            print(f"发生错误: {e}")
-        finally:
-            browser.close()
 
 
 def is_model_available(model_id: str, cooldown_seconds: int = 300) -> bool:
@@ -890,102 +878,117 @@ def chat_completion_messages(
 
         # makesure system-->user
         """将messages列表中所有role为system的条目改为user"""
-        # print(messages)
         for msg in messages:
             if msg.get("role") == "system":
                 msg["role"] = "user"
-        # print(messages)
-        # 调用 JavaScript 函数
-        ctx = execjs.compile(js_code)
 
-        headers = {
-            "accept": "text/event-stream",
-            "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "cache-control": "no-cache",
-            "content-type": "application/json",
-            "origin": f"https://{default_host}",
-            "referer": f"https://{default_host}/",
-            "pragma": "no-cache",
-            "priority": "u=1, i",
-            "sec-ch-ua": "\"Google Chrome\";v=\"137\", \"Chromium\";v=\"137\", \"Not/A)Brand\";v=\"24\"",
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": "\"Windows\"",
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-            "x-fe-signals": "eyJzdGFydCI6MTc1MDA4NzgwODY5NSwiZXZlbnRzIjpbeyJuYW1lIjoib25ib2FyZGluZ19pbXByZXNzaW9uXzEiLCJkZWx0YSI6Mzc5fSx7Im5hbWUiOiJvbmJvYXJkaW5nX2ltcHJlc3Npb25fMiIsImRlbHRhIjo2MzQxfSx7Im5hbWUiOiJvbmJvYXJkaW5nX2ZpbmlzaCIsImRlbHRhIjo5NjQ4fSx7Im5hbWUiOiJzdGFydE5ld0NoYXQiLCJkZWx0YSI6MTQ1Mjl9XSwiZW5kIjozMTY4OH0=",
-            "x-fe-version": "serp_20250616_041534_ET-16d105cd2e432a85e59b",
-            "x-vqd-4": "4-233475472251743453354969293510258779181",
-            "x-vqd-hash-1": "eyJzZXJ2ZXJfaGFzaGVzIjpbIlE4NDNIRGVncGE5cDkxOHM5NzZqVjdzYzdRcXhRSzRYNTZXTGhJQzhRbkk9IiwiWSs1aGtVUStTdTQ1TFMreHhJZTZteHNIT3BxYnNhVGRWS1hqUjNRdVpBQT0iXSwiY2xpZW50X2hhc2hlcyI6WyJTRkdSV1g5bXhRNDdiWW15Y3FtU3lTbnpTQWdrNUJ6Z2VSa29yTnliNktRPSIsIkFRdVFZK1dlZlBPT1FrbkMrb1hPbnI2WUJmNlZMZXhuZGpCcW1rV0dJM1U9Il0sInNpZ25hbHMiOnt9LCJtZXRhIjp7InYiOiIzIiwiY2hhbGxlbmdlX2lkIjoiODIzMDljYzc1YTc3YWEwMjFlZDM5ZWJlZjI5ZTRlMmFmMWJlODYzZTczNGEwNGIzMWZmYWRlNTA5MTJjMDA1OGg4amJ0IiwidGltZXN0YW1wIjoiMTc1MDA4NzgyMzI0MSIsIm9yaWdpbiI6Imh0dHBzOi8vZHVja2R1Y2tnby5jb20iLCJzdGFjayI6IkVycm9yXG5hdCBibiAoaHR0cHM6Ly9kdWNrZHVja2dvLmNvbS9kaXN0L3dwbS5jaGF0LjE2ZDEwNWNkMmU0MzJhODVlNTliLmpzOjE6NzQ4MDMpXG5hdCBhc3luYyBkaXNwYXRjaFNlcnZpY2VJbml0aWFsVlFEIChodHRwczovL2R1Y2tkdWNrZ28uY29tL2Rpc3Qvd3BtLmNoYXQuMTZkMTA1Y2QyZTQzMmE4NWU1OWIuanM6MTo5OTUyOSkifX0="
-        }
-        cookies = {
-            "dcm": "3",
-            "dcs": "1"
-        }
-        url = "https://duckduckgo.com/duckchat/v1/chat"
-        data = {
-            "model": model,
-            "metadata": {
-                "toolChoice": {
-                    "NewsSearch": False,
-                    "VideosSearch": False,
-                    "LocalSearch": False,
-                    "WeatherForecast": False
+        # 创建会话
+        session = requests.session()
+        
+        # 重试机制
+        max_retries = 10  # 最大重试次数
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                print("===================================")
+                sndurl = "https://duckduckgo.com/duckchat/v1/chat"
+                data = {
+                    "model": model,
+                    "metadata": {
+                        "toolChoice": {
+                            "NewsSearch": False,
+                            "VideosSearch": False,
+                            "LocalSearch": False,
+                            "WeatherForecast": False
+                        }
+                    },
+                    "messages": messages,
+                    "canUseTools": True,
+                    "canUseApproxLocation": True
                 }
-            },
-            "messages": messages,
-            "canUseTools": True
-        }
-        data = json.dumps(data, separators=(',', ':'))
-        signalsword = {"start": int(time.time() * 1000), "events": [{"name": "onboarding_impression_1", "delta": 379},
-                                                                    {"name": "onboarding_impression_2", "delta": 6341},
-                                                                    {"name": "onboarding_finish", "delta": 9648},
-                                                                    {"name": "startNewChat", "delta": 14529}],
-                       "end": 31688}
-        headers['x-fe-signals'] = base64.b64encode(json.dumps(signalsword).encode('utf-8')).decode('utf-8')
-        res = requests.post(url, headers=headers, cookies=cookies, data=data)
-        res.encoding = 'utf-8'
-        # vqdhash = response.headers['x-vqd-hash-1']
-        # vqd4 = response.headers['x-vqd-4']
-        # headers['x-vqd-hash'] = ctx.call('dd', vqdhash)
-        # headers['x-vqd-4'] = vqd4
-        # data = json.loads(data)
-        # data['messages'][0]['content'] = '1+1='
-        # data = json.dumps(data, separators=(',', ':'))
-        # signalsword["start"] = int(time.time() * 1000)
-        # headers['x-fe-signals'] = base64.b64encode(json.dumps(signalsword).encode('utf-8')).decode('utf-8')
-        # # response = requests.post(url, headers=headers, cookies=cookies, data=data, proxies=proxies)
-        # response = requests.post(url, headers=headers, cookies=cookies, data=data)
-        # response.encoding = 'utf-8'
-        # print(response.text)
-
-        if debug:
-            print(res.text)
-
-        # 解析响应内容
-        final_content = ""
-        if res.status_code == 200:
-            for line in res.iter_lines(decode_unicode=True):
-                # print(line)
-                # print(line)
-                # 检查 if 'data: [DONE]'在行中进行下一步动作
-                if 'data: [DONE]' in line:
-                    # 如果找到结束信号，退出循环
+                data = json.dumps(data, separators=(',', ':'))
+                if debug:
+                    print("请求data:", data)
+                
+                signalsword = {"start": int(time.time()*1000), "events": [{"name": "startNewChat", "delta": 178}, {"name": "recentChatsListImpression", "delta": 282}], "end": 15386}
+                
+                headers = {
+                    "Host": "duckduckgo.com",
+                    "Connection": "keep-alive",
+                    "sec-ch-ua-platform": "\"Windows\"",
+                    "Cache-Control": "no-store",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+                    "sec-ch-ua": "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Google Chrome\";v=\"138\"",
+                    "sec-ch-ua-mobile": "?0",
+                    "x-vqd-accept": "1",
+                    "Accept": "*/*",
+                    "Sec-Fetch-Site": "same-origin",
+                    "Sec-Fetch-Mode": "cors",
+                    "Sec-Fetch-Dest": "empty",
+                    "Referer": "https://duckduckgo.com/",
+                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "Cookie": "dcm=3; dcs=1",
+                    "content-type": "application/json"
+                }
+                
+                headers['x-fe-signals'] = base64.b64encode(json.dumps(signalsword).encode('utf-8')).decode('utf-8')
+                headers['x-vqd-hash-1'] = get_hash(session)
+                headers["x-fe-version"] = f"serp_{time.strftime('%Y%m%d', time.localtime())}_{random.randint(100000,999999)}_ET-1518ee4f4ab6fe201b29"
+                
+                response = session.post(sndurl, headers=headers, data=data)
+                response.encoding = 'utf-8'
+                
+                if response.status_code == 200:
+                    if debug:
+                        print(f"\033[92m请求成功，状态 {response.status_code}；响应: {response.text[:300]}\033[0m")
+                    
+                    # 解析响应内容
+                    final_content = ""
+                    for line in response.iter_lines(decode_unicode=True):
+                        if 'data: [DONE]' in line:
+                            break
+                        elif line.startswith('data: '):
+                            data_json = line[6:]
+                            try:
+                                datax = json.loads(data_json)
+                                if 'message' in datax:
+                                    final_content += datax['message']
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    if debug:
+                        print(final_content)
+                    return final_content
+                else:
+                    retry_count += 1
+                    if debug:
+                        print(f"\033[91m请求失败，状态 {response.status_code}；响应: {response.text[:80]}，第 {retry_count} 次重试\033[0m")
+                    
+                    if retry_count < max_retries:
+                        # 随机等待 0.5-2 秒
+                        wait_time = random.uniform(0.5, 2.0)
+                        # print(f"等待 {wait_time:.2f} 秒后重试...")
+                        time.sleep(wait_time)
+                    # else:
+                    #     print(f"达到最大重试次数 {max_retries}，停止重试")
+                    #     break
+                        
+            except Exception as retry_e:
+                retry_count += 1
+                print(f"请求异常: {retry_e}，第 {retry_count} 次重试")
+                
+                if retry_count < max_retries:
+                    # 随机等待 0.5-2 秒
+                    wait_time = random.uniform(0.5, 2.0)
+                    print(f"等待 {wait_time:.2f} 秒后重试...")
+                    time.sleep(wait_time)
+                else:
+                    print(f"达到最大重试次数 {max_retries}，停止重试")
                     break
-                elif line.startswith('data: '):  # 确保行以'data: '开头
-                    data_json = line[6:]  # 删除行前缀'data: '
-                    datax = json.loads(data_json)  # 解析JSON字符串为字典
-                    if 'message' in datax:
-                        final_content += datax['message']
-                        # print( final_content)
-            # # 保存最终的content结果
-            # final_result = final_content
-            if debug:
-                print(final_content)
-            return final_content
+            
     except Exception as e:
-        print(f"chat_completion_messages  使用模型[{model}]发生了异常：", e)
+        print(f"chat_completion_messages 使用模型[{model}]发生了异常：", e)
         traceback.print_exc()
     return ""
 
@@ -1000,22 +1003,13 @@ def mods(model, prompt):
 # 测试代码
 if __name__ == "__main__":
     debug = False
-    time1 = time.time() * 1000
-    result_json = get_models()
-    time2 = time.time() * 1000
-    print(f"耗时: {time2 - time1}\r\n获取模型列表:\r\n{result_json}")
-    # result_json2 = get_models()
-    # time3 = time.time() * 1000
-    # print(f"耗时2: {time3 - time2}")
-    # print(result_json2)
-    #
-    # print(f"获取自动模型1 get_model_by_autoupdate :{get_model_by_autoupdate('hello')}")
-    # print(f"获取自动模型2 get_auto_model :{get_auto_model()}")
-    # print(f"获取自动模型3 cached_models :{cached_models}")
-    
+    # time1 = time.time() * 1000
+    # result_json = get_models()
+    # time2 = time.time() * 1000
+    # print(f"耗时: {time2 - time1}\r\n获取模型列表:\r\n{result_json}")
+
     p = "你是谁?你使用的是什么模型?你的知识库截止到什么时间? "
     model_ids = [model['id'] for model in cached_models['data']]
     for id in model_ids:
         mods(id, p)
-    # mes=[{"role": "system", "content": "you are a bot."},{"role": "user", "content": "Say this is a test!"},{"role":"assistant","content":"This is a test!"},{"role": "user", "content": "你擅长什么技能"}]
-    # chat_completion_messages(mes,model="gpt-4o-mini")
+    # mods("gpt-4o-mini", p)
